@@ -5,7 +5,7 @@ Apprendre Laravel
 
 # Préface
 
-Cette documentation est valide pour la version 9 (et supérieure) de Laravel allant avec la version 8.1 (et supérieure) de PHP.
+*Cette documentation est valide pour la version 9 (et supérieure) de Laravel allant avec la version 8.1 (et supérieure) de PHP.*
 
 # Sommaire
 
@@ -16,32 +16,35 @@ Cette documentation est valide pour la version 9 (et supérieure) de Laravel all
         2. [Linux](#Linux)
         3. [Windows](#Windows)
         4. [Composer](#Composer)
-    3. [Architecture des fichiers](#Architecture-des-fichiers)
-    4. [Le fichier `.env`](#Le-fichier-.env)
-    5. [Controller](#Controller)
+    3. [Bonnes pratiques de développement](#Bonnes-pratiques-de-développement)
+    4. [Architecture des fichiers](#Architecture-des-fichiers)
+    5. [Le fichier `.env`](#Le-fichier-.env)
+    6. [Helpers](#Helpers)
+    7. [Controller](#Controller)
         1. [Controller - Bases](#Controller---Bases)
         2. [Réponse HTTP](#Réponse-HTTP)
-        3. [Bonnes pratiques](#Bonnes-pratiques)
-    6. [Routes](#Routes)
+        3. [Controllers - Bonnes pratiques](#Controllers---Bonnes-pratiques)
+    8. [Routes](#Routes)
         1. [Routes - Bases](#Routes---Bases)
         2. [Lier à une méthode de Controller](#Lier-à-une-méthode-de-Controller)
         3. [Les paramètres d'url](#Les-paramètres-d'url)
         4. [Grouper les routes](#Grouper-les-routes)
         5. [Appliquer un middleware](#Appliquer-un-middleware)
-    7. [Migration](#Migration)
+        6. [L'objet Request](#L&#39;objet-Request)
+    9. [Migration](#Migration)
         1. [Migration - Bases](#Migrations---Bases)
         2. [Convention de nommage](#Conventions-de-nommage)
         3. [Écrire les migrations](#Écrire-les-migrations)
         4. [Contraintes](#Contraintes)
         5. [Exécuter les migrations](#Exécuter-les-migrations)
         6. [Bonnes pratiques](#Bonnes-pratiques)
-    8. [Model](#Model)
+    10. [Model](#Model)
         1. [Attributs](#Attributs)
         2. [Définir les relations](#Définir-les-relations)
         3. [Créer une entité](#Créer-une-entité)
         4. [Mettre à jour une entité](#Mettre-à-jour-une-entité)
         5. [Supprimer une entité](#Supprimer-une-entité)
-    10. [Collection](#Collection)
+    11. [Collection](#Collection)
         1. [Méthodes](#Méthodes)
     12. [Seeder](#Seeder)
     13. [Validation](#Validation)
@@ -51,7 +54,8 @@ Cette documentation est valide pour la version 9 (et supérieure) de Laravel all
     1. [Middleware](#Middleware)
     2. [Form Request](#Form-Request)
     3. [Resource](#Resource)
-    4. [Refactoriser](#Refactoriser)
+    4. [Gestion des fichiers](#Gestion-des-fichiers)
+    5. [Refactoriser](#Refactoriser)
 3. [Glossaire](#Glossaire)
 4. [Sources et documentation](#Source-et-documentation)
     4. [Vidéos](#Vidéos)
@@ -92,15 +96,14 @@ De base, ce dossier contiendra un squelette d’application Laravel avec quelque
 
 `composer create-project laravel/laravel example-app`
 
-Une fois le dossier téléchargé, on peut s’y rendre et lancer l’application sur le port **8000** (port par défaut utilisé) avec:
+Une fois le dossier téléchargé, on peut s’y rendre et lancer l’application sur le port **8000** (port par défaut utilisé) avec (il est conseillé de [configurer un alias](https://laravel.com/docs/9.x/sail#configuring-a-bash-alias) pour la commande `sail`):
 
-`vendor/bin/sail up -d`
+`./vendor/bin/sail up -d`
 
-Il est conseillé de [configurer un alias](https://laravel.com/docs/9.x/sail#configuring-a-bash-alias) pour la commande `sail`.
 
 La première fois, cela va créer les conteneurs Docker en fonction des services définis dans le `docker-compose.yml`, puis lancer les différents conteneurs et commandes nécessaires au fonctionnement de l’application.
 
-Les différents ports mappés par Docker peuvent être modifié dans le fichier `.env` situé à la racine:
+Les différents ports mappés par Docker sur l'host peuvent être modifié dans le fichier `.env` situé à la racine:
 
 ```
 APP_PORT -> port de l’application
@@ -111,15 +114,63 @@ FORWARD_MAILHOG_PORT -> port pour Mailhog
 FORWARD_MAILHOG_DASHBOARD_PORT -> port le dashboard Mailhog
 ```
 
-ou, si Docker n’est pas utilisé:
+Si Docker n’est pas utilisé, il y a quelques commandes à exécuter:
 
-`php artisan serve`
+`php artisan key:generate` définit la valeur `APP_KEY` dans le fichier `.env`;
 
-Cela lance l’application sur le port 8000.
+`php artisan storage:link` crée un lien symbolique entre les dossiers `public/storage` et `storage/app/public`;
+
+`php artisan serve` pour lancer l'application (port 8000 par défaut)
+
+## Bonnes pratiques de développement
+
+- Convention de nommage
+
+    - **Variables, méthodes et fonctions**: camelCase
+    - **Propriétés**: snake_case
+    - **Classes**: PascalCase
+
+```php=
+<?php
+
+$archivedUser = User::where('status', UserStatus::Archived)->first(); // Variable
+
+$user->first_name; // Propriété
+$user->fullName(); // Méthode
+
+class MyClass // Classe
+```
+
+- Comprendre en un regard
+
+Éviter les noms du type `$tmp` ou `$a`, toujours opter pour un nom ayant du sens, même si c'est long:
+
+```php=
+<?php
+
+$users = User::all();
+$usersWithAllComments = $users->load('comments');
+// Plutôt que $users2 ou $usersComments
+```
+
+- En anglais
+
+Afin d'avoir un code compréhensible par tout développeur, il faut utiliser des noms de variables/classes/propriétés/routes dans une langue unie.
+
+- Pluraliser ses variables/propriétés
+
+Cela aide à comprendre à quoi correspond telle ou telle variable/propriété ainsi que de savoir à quel type on a à faire:
+
+```php=
+<?php
+
+$user; // Une entité User
+$users; // Une Collection/array de User
+```
 
 ## [Architecture des fichiers](https://laravel.com/docs/9.x/structure)
 
-```
+```swift
 .
 ├── app/
 │   └── Console/
@@ -130,7 +181,7 @@ Cela lance l’application sur le port 8000.
 │   │   ├── Middleware/
 │   │   ├── Requests/
 │   │   ├── Resources/
-│   │   └── Kernel.php       -> Emplacement des règles pour les Middleware
+│   │   └── Kernel.php       -> Fichier définissant les règles pour les Middleware
 │   └── Models/
 ├── config/                  -> Dossier contenant les fichiers de configuration, se basant sur le fichier .env et le helper config()
 ├── database/
@@ -156,9 +207,23 @@ Cela lance l’application sur le port 8000.
 
 ## [Le fichier .env](https://laravel.com/docs/9.x/configuration#environment-configuration)
 
-Le fichier .env situé à la racine est, de base, une copie du fichier `.env.example`. C’est dans ce fichier que se situent toutes les **variable d'environnement** dans l’application, qui ne doivent **pas apparaître publiquement** et qui peuvent changer **en fonction de chaque développeur**.
+Le fichier .env situé à la racine est, de base, une copie du fichier `.env.example`. C’est dans ce fichier que se situent toutes les **variable d'environnement** de l’application, qui ne doivent **pas apparaître publiquement** et qui peuvent changer **en fonction de chaque développeur**.
 
 C’est notamment ici que l’on retrouve les identifiants pour la **connexion à la base de données**, qui doivent être indiqués avant de lancer l’application si Docker n’est pas utilisé.
+
+## [Helpers](https://laravel.com/docs/9.x/helpers)
+
+Laravel propose un large éventail de fonction globales, utilisables dans n'importe quel fichier:
+
+| Nom | Description |
+|---|---|
+| **abort**(&#36;statusCode, &#36;reason) | Lance une exception avec le code HTTP `$statusCode` et la raison `$reason` |
+| **collect**(&#36;array) | Converti un tableau `$array` en une `Collection` |
+| **config**(&#36;key, &#36;default) | Renvoie la valeur de la variable d'environnement correspondante à la clé `$key`, sinon `$default` si précisé |
+| **dd**(&#36;var) | Diminutif de "dump and die", soit `var_dump($var)` et `die()`, affiche la valeur `$var` et stop l'exécution du code |
+| **info**(&#36;string) | Écrit `$string` dans le fichier de log (`storage/logs/laravel.log`) |
+| **request**() | Renvoie l'objet `Request` courant |
+| **session**() | Renvoie l'objet `Session` courant |
 
 ## [Controller](https://laravel.com/docs/9.x/controllers)
 
@@ -177,7 +242,6 @@ Une entité est une instance d'un `Model`, par exemple ici, `$user` est une inst
 
 ```php=
 <?php
-// app/Http/Controllers/UserController.php
 
 use App\Models\User;
 
@@ -208,18 +272,18 @@ Par exemple, pour renvoyer un tableau d'erreurs avec le code HTTP 400:
 <?php
 // app/Http/Controllers/UserController.php
 
-public function store(User $user) {
-    // ... code
+public function update(User $user) {
+    // ...
     
     $errors = [
-        'name' => 'Le nom n\'est pas au bon format'  
+        'name' => 'Le nom n\'est pas au bon format'
     ];
     
     return response($errors, 400);
 }
 ```
 
-Pour renvoyer du JSON, le helper `response()` peut être étendu avec la méthode `json()`, qui va s'occuper de transformer la donnée en premier paramètre en JSON lisible dans la réponse:
+Pour renvoyer du JSON, le helper `response()` peut être chaîné avec la méthode `json()`, qui va s'occuper de transformer la donnée en paramètre en JSON dans la réponse:
 
 ```php=
 <?php
@@ -227,15 +291,23 @@ Pour renvoyer du JSON, le helper `response()` peut être étendu avec la méthod
 
 use App\Models\User;
 
-public function show(User $user)
+public function json()
 {
-    return response()->json(user);
+    $data = [
+        'first_name' => 'John',
+        'last_name' => 'Doe'
+    ];
+    return response()->json($data);
+    // {
+    //     "first_name": "John",
+    //     "last_name": "Doe"
+    // }
 }
 ```
 
-Par défaut, le code HTTP renvoyé par `response()` et `json()` est **200**.
+Par défaut, le code HTTP renvoyé par `response()` et `json()` est **200**, mais il est possible de le préciser en le passant en deuxième paramètre.
 
-### Bonnes pratiques
+### Controllers - Bonnes pratiques
 
 Il faut toujours faire attention à la taille d'un Controller, s'il dépasse plusieurs centaines de lignes, il doit surement il y avoir du code qui ne doit pas être là. Un Controller doit se servir des différents types de classes à sa disposition afin d'effectué les différentes actions demandés. Par exemple, si le `Model` "*User*" est relié à plusieurs rôle, s'il l'on souhaite récupérer les "*User*" avec un rôle particulier, il parait logique de faire:
 
@@ -286,7 +358,7 @@ public function getWithRole(int $role_id)
 
 ### Routes - Bases
 
-Le premier **point d'entrée** de l’application se situe dans les fichiers situés dans le dossier `routes`, à la racine. Ils servent à modéliser les différentes **routes** de l’application. Chaque fichier dans ce dossier est soumis à un ou plusieurs **middleware** par défaut.
+Le premier **point d'entrée** de l’application se situe dans les fichiers dans le dossier `routes`, à la racine. Ils servent à modéliser les différentes **routes** de l’application.
 
 Le fichier `web.php` sert surtout lorsque l'on souhaite développer une application full-stack avec Laravel et son moteur de template **Blade**.
 
@@ -305,9 +377,9 @@ Route::get(‘/hello’, function () {
 })->name(‘hello’);
 ```
 
-La classe `Route` est utilisée pour décrire les différentes routes de notre application. Elle possède plusieurs **méthodes statiques** permettant de noter les différentes méthodes HTTP utilisées comme `GET`, `POST`, `PUT` ou `v`, avec leur méthode respective: `Route::get()`, `Route::post()`, `Route::put()` et `Route::delete()`.
+La classe `Route` est utilisée pour décrire les différentes routes de notre application. Elle possède plusieurs **méthodes statiques** permettant de noter les différentes méthodes HTTP utilisées comme `GET`, `POST`, `PUT` ou `DELETE`, avec leur méthode respective: `Route::get()`, `Route::post()`, `Route::put()` et `Route::delete()`.
 
-Chacune de ses méthodes prend au moins **deux** paramètres, la première est la route que l'on souhaite modéliser. Le deuxième peut varier selon le cas d’utilisation. Dans le cas ci-dessus, on utilise une **fonction anonyme** qui retourne du texte simple.
+Chacune de ses méthodes prend au moins **deux** paramètres, la première est la route que l'on souhaite modéliser. Le deuxième peut varier selon le cas d’utilisation. Dans le cas ci-dessus, on utilise un **callback** (**fonction anonyme**) qui retourne du texte simple.
 
 Il est également important de **nommer** les routes afin de s’y retrouver et d’y faire référence dans le code dans d'autres contextes.
 
@@ -325,11 +397,11 @@ use App\Http\Controllers\UserController;
 Route::get(‘/users/all’, [UserController::class, ‘all’])->name(‘users.all’);
 ```
 
-Grâce à cette écriture, la route /users/all est liée au UserController et elle va chercher la méthode all de celui-ci.
+Grâce à cette écriture, la route `/users/all` est liée au "*UserController*" et elle va chercher la méthode `all` de celui-ci.
 
 ### [Les paramètres dans l'url](https://laravel.com/docs/9.x/routing#route-parameters)
 
-Il est possible de passer des **paramètres dynamiques** dans l’url via les routes que l’on définit. Par exemple, si l’on souhaite récupérer un "*User*" par son id et afficher ses informations:
+Il est possible de passer des **paramètres dynamiques** dans l’url via les routes que l’on définit. Par exemple, si l’on souhaite récupérer un "*User*" par son `id` et afficher ses informations:
 
 ```php=
 <?php
@@ -351,13 +423,13 @@ use App\Models\User;
 
 public function show(int $id)
 {
-    $user = User::find($id);
+    $user = User::findOrFail($id);
 
     return $user;
 }
 ```
 
-Une meilleure façon de le faire est d'utiliser la liaison entre une route et un modèle via le paramètre de l'url. Toujours dans le cas où l'on souhaite afficher les informations d'un "*User*":
+Une meilleure façon de le faire est d'utiliser la liaison entre une route et un modèle via le paramètre de l'url. Toujours dans le cas où l'on souhaite afficher les informations d'un "*User*" grâce à son `id`:
 
 ```php=
 <?php
@@ -407,7 +479,7 @@ Route::prefix(‘users’)->group(function () {
 
 La méthode `prefix()` permet de préfixer toutes les routes avec un préfixe. Dans le cas ci-dessus, les routes suivantes seront créées:
 
-```
+```swift
 GET /api/users
 POST /api/users
 GET /api/users/1
@@ -460,6 +532,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 
 Route::controller(UserController::class)
+    ->prefix('users')
     ->middleware(['admin'])
     ->group(function () {
         Route::get(‘/’, 'index')->name(‘users.index’);
@@ -474,15 +547,150 @@ Ici, les routes liées au `UserController` sont accéssiblent seulement si le `M
 
 ![](https://i.imgur.com/cIS0Dmo.png)
 
+### [L&#39;objet Request](https://laravel.com/docs/9.x/requests)
+
+L'object `$request` peut être passé en injection de dépendance à toutes les méthodes appellées par une route:
+
+```php=
+<?php
+// routes/api.php
+use Illuminate\Support\Facades\Route;
+
+Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
+
+// app/Controllers/UserController.php
+use Illuminate\Http\Request;
+
+public function show (Request $request)
+{
+    dd($request);
+}
+```
+
+Il est aussi possible de récupérer le même object avec le helper `request()`, sans passer par de l'injection de dépendances:
+
+```php=
+<?php
+// routes/api.php
+use Illuminate\Support\Facades\Route;
+
+Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
+
+// app/Controllers/UserController.php
+use Illuminate\Http\Request;
+
+public function show ()
+{
+    dd(request());
+}
+```
+
+`$request` et `request()` sont équivalent.
+
+- Récupérer les paramètres de l'url (situé après un "?")
+
+```php=
+<?php
+
+// URL: http://localhost:8000/users?name=john&age=25
+
+$name = $request->query('name', 'défaut');
+// $name -> 'john' ou 'défaut' si le paramètre n'est pas présent
+
+$age = $request->query('age');
+// $age -> 25
+```
+
+- Récupérer les valeurs d'une requête POST
+
+Lors d'une requête POST, il peut s'avérer utile de récupérer les valeurs contenu dans le corps de la requête:
+
+```json
+{
+    "email" => "john.doe@gmail.com",
+    "first_name" => "John",
+    "last_name" => "Doe"
+}
+```
+
+```php=
+<?php
+// routes/api.php
+use Illuminate\Support\Facades\Route;
+
+Route::store('/users', [UserController::class, 'store'])->name('users.store');
+
+// app/Controllers/UserController.php
+use Illuminate\Http\Request;
+
+public function store (Request $request)
+{
+    dd($request->all());
+    // [
+    //     'email' => 'john.doe@gmail.com',
+    //     'first_name' => 'John',
+    //     'last_name' => 'Doe',
+    // ]
+    
+    dd($request->email);
+    // 'email@gmail.com'
+    
+    dd(request('first_name'));
+    // 'John'
+}
+```
+
+- Gérer les cookies
+
+Il est possible de récupérer la valeur d'un cookie grâce à sa clé:
+
+```php=
+<?php
+
+$csrf = $request->cookie('csrf');
+```
+
+- Gestion des fichiers
+
+Lorsqu'un fichier est contenu dans une requête, il est possible de vérifier qu'il est présent et de le récupérer grâce à sa clé dans le corps de la requête:
+
+```php=
+<?php
+
+$avatar = null;
+if ($request->hasFile('avatar'))
+{
+    $avatar = $request->file('avatar');
+    // ou request('avatar')
+}
+```
+
+La valeur de la variable sera alors du type [Illuminate\Http\UploadedFile](https://laravel.com/api/9.x/Illuminate/Http/UploadedFile.html).
+
+- Autres méthodes importantes
+
+| Nom | Description |
+|---|---|
+| **method**() | Renvoie la méthode utilisée par la requête (get, post, etc.) |
+| **isMethod**(&#36;method) | Renvoie true si la méthode est celle attendue, false sinon |
+| **header**(&#36;key, &#36;default) | Renvoie la valeur du header à l'index `$key`, renvoie null si l'index n'est pas trouvé ou `$default` si précisé |
+| **hasHeader**(&#36;key) | Renvoie true si une valeur existe à l'index `$key` dans les headers |
+| **bearerToken**() | Renvoie le bearer token contenue dans le header "*Authorization*" |
+| **has**(&#36;key) | Renvoie true si l'index `$key` est dans le corps de la requête, false sinon |
+| **whenHas**(&#36;key, &#36;callback) | Lorsque l'index `$key` est dans la requête, le `$callback` est exécuté |
+| **filled**(&#36;key) | Pareil que `has()` mais vérifie que la valeur soit différente de null |
+| **whenFilled**(&#36;key, &#36;callback) | Pareil que `whenHas()` mais vérifie que la valeur soit différente de null |
+| **path**() | Renvoie le chemin de la requête ("http://localhost:8000/users/create" -> "/users/create" |
+| **is**(&#36;pattern) | Renvoie true si le chemin correspond au `$pattern`, false sinon |
+| **routeIs**(&#36;pattern) | Renvoie true si la route (définie par `name()`) correspond au `$pattern`, false sinon |
+| **url**() | Renvoie l'url de la requête |
+| **fullUrl**() | Renvoie l'url de la requête avec ses paramètres (situé après le "?") |
+
 ## [Migrations](https://laravel.com/docs/9.x/migrations)
 
 ### Migrations - Bases
 
 Les fichiers de migrations sont là pour définir la structures des tables dans la base de données. Une migration va aussi définir un `Model`, il faut donc faire attention au nommage.
-
-Pour commencer et générer une migration, on peut utiliser `artisan`:
-
-`php artisan make:migration [nom_de_la_migration]`
 
 ### Conventions de nommage
 
@@ -493,7 +701,7 @@ Par exemple, si l'on veut un `Model` "*User*":
 `create_users_table`
 
 - Pour mettre à jour une table:
-    - Si l'on souhaite ajoute une colonne: `add_[nom_de_la_colonne]_to_[nom_de_la_table]_table`
+    - Si l'on souhaite ajouter une colonne: `add_[nom_de_la_colonne]_to_[nom_de_la_table]_table`
         Ajouter une colonne "*status_id*" à la table "*users*":
         `add_status_id_to_users_table`
 
@@ -520,6 +728,10 @@ Après génération d'un fichier de migration, une classe est créée avec un no
 ```php=
 <?php
 // database/migrations/2022_06_10_555255_create_users_table.php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 class CreateUsersTable extends Migration
 {
@@ -550,20 +762,20 @@ De base, la migration possède 3 colonnes:
 
 Il existe plusieurs types de colonnes, parmis les plus utilisés:
 
-|         Méthode | Description                                              |
-| ---------------:|:-------------------------------------------------------- |
-| bigIncrements() | Pareil que id() avec un interval plus grand              |
-|       boolean() | 0 ou 1                                                   |
-|      dateTime() | Heure et date (format `{year}_{month}_{day}_{time}`)     |
-|          date() | Date (format `{year}_{month}_{day}`                      |
-|        double() | Pareil que float() avec un interval plus grand           |
-|         float() | Nombre à virgule                                         |
-|  foreignIdFor() | Colonne de relation avec un `Model` donné                |
-|            id() | Colonne `id` en PRIMARY KEY, AUTO INCREMENT et UNSIGNED  |
-|       integer() | Nombre                                                   |
-| rememberToken() | Colonne utilisé pour l'authentification des utilisateurs |
-|        string() | Chaîne de charactère ne dépassant pas 255                |
-|          text() | Chaîne de charactère                                     |
+| Nom | Description |
+|---|---|
+| **bigIncrements**() | Pareil que `id()` avec un interval plus grand |
+| **boolean**() | 0 ou 1 |
+| **dateTime**() | Heure et date (format `{year}_{month}_{day}_{time}`) |
+| **date**() | Date (format `{year}_{month}_{day}` |
+| **double**() | Pareil que float() avec un interval plus grand |
+| **float**() | Nombre à virgule |
+| **foreignIdFor**() | Colonne de relation avec un `Model` donné |
+| **id**() | Colonne `id` en PRIMARY KEY, AUTO INCREMENT et UNSIGNED  |
+| **integer**() | Nombre |
+| **rememberToken**() | Colonne utilisé pour l'authentification des utilisateurs |
+| **string**() | Chaîne de charactère ne dépassant pas 255 |
+| **text**() | Chaîne de charactère |
 
 ### [Contraintes](https://laravel.com/docs/9.x/migrations#column-modifiers)
 
@@ -625,17 +837,15 @@ Schema::create('users', function (Blueprint $table) {
 });
 ```
 
-En reprenant la migration ci-dessus, on peut rajouter la contrainte `nullable()` si la **avatar_id** afin d'indiquer qu'elle peut avoir une valeur `null`.
+En reprenant la migration ci-dessus, on peut rajouter la contrainte `nullable()` si la colonne **avatar_id** afin d'indiquer qu'elle peut avoir une valeur `null`.
 
 - `default()`
 
-La méthode `default()` permet d'avoir une valeur par défaut pour une colonne:
+La méthode `default()` permet d'avoir une valeur par défaut pour une colonne lors de la création d'une entité:
 
 ```php=
 <?php
 // database/migrations/2022_06_10_243563_create_users_table.php
-
-use App\Models\Avatar;
 
 Schema::create('users', function (Blueprint $table) {
     $table->boolean('is_active')->default(false);
@@ -701,14 +911,14 @@ La classe "*User*" étend de la classe "*Model*". Cela permet d'hériter de diff
 
 Il existe plusieurs attributs de classe permettant de configurer le comportement d'un `Model`
 
-| Nom                          | Description                                         |
-|------------------------------|-----------------------------------------------------|
-| protected string $table      | Le nom de la table en base de données               |
-| protected array $fillable    | Les colonnes pouvant être modifiés                  |
-| protected array $hidden      | Les attributs cachés lors de la sérialisation       |
-| protected array [$casts](https://laravel.com/docs/9.x/eloquent-mutators#attribute-casting)       | Le type (PHP) des colonnes lors de la sérialisation |
-| protected array $appends     | Les attributs ajoutées lors de la sérialisation     |
-| protected string $primaryKey | La clé primaire de la table en base de données      |
+| Nom | Description |
+|---|---|
+| protected string $**table** | Le nom de la table en base de données |
+| protected array $**fillable** | Les colonnes pouvant être modifiés |
+| protected array $**hidden** | Les attributs cachés lors de la sérialisation |
+| protected array [$**casts**](https://laravel.com/docs/9.x/eloquent-mutators#attribute-casting) | Le type (PHP) des colonnes lors de la sérialisation |
+| protected array $**appends** | Les attributs ajoutées lors de la sérialisation |
+| protected string $**primaryKey** | La clé primaire de la table en base de données |
 
 Imaginons la migration suivante:
 
@@ -834,12 +1044,12 @@ class Avatar extends Model
 
 Au niveau du `Model` "*User*", on peut définir une méthode au nom de la relation que l'on souhaite définir. Dans ce cas, un "*User*" a un "*Avatar*", donc on définis la méthode `avatar()`. Cette méthode doit retourner une relation, il existe plusieurs types de relation pour tous les cas:
 
-| Nom             | Description                                                                 |
-|-----------------|-----------------------------------------------------------------------------|
-| hasOne()        | Dans le cas d'une relation One to One, un **User** a un **Avatar**          |
-| hasMany()       | Dans le cas d'une relation One to Many, un **Post** a plusieurs **Comment** |
-| belongsTo()     | L'inverse de la relation d'un One to One ou One to Many                     |
-| belongsToMany() | Dans le cas d'un Many to Many                                               |
+| Nom | Description |
+|---|---|
+| **hasOne**() | Dans le cas d'une relation One to One, un "*User*" a un "*Avatar*" |
+| **hasMany**() | Dans le cas d'une relation One to Many, un **Post** a plusieurs "*Comment*" |
+| **belongsTo**() | L'inverse de la relation d'un One to One ou One to Many |
+| **belongsToMany**() | Dans le cas d'un Many to Many |
 
 Le premier paramètre de ces méthodes est toujours la classe de relation.
 
@@ -1028,28 +1238,28 @@ En assumant que la clé primaire est la colonne nommée `id`, alors la requête 
 
 On peut également indiquer plusieurs conditions avant de récupérer notre entité. Avec les différentes méthodes de type `where`:
 
-| Nom                                                              | Description                                                                |
-|------------------------------------------------------------------|---------------------------------------------------------------------------|
-| where($colonne, $condition)                                      | Applique la condition voulue sur la colonne indiquée                      |
-| whereIn($colonne, $tableau)                                      | La valeur de la colonne doit se trouver dans le tableau                   |
-| orWhere($colonne, $condition)                                    | Applique une condition optionnelle sur la colonne indiquée                |
-| whereBetween($colonne, $tableau)                                 | La valeur de la colonne doit se trouver entre les deux valeurs du tableau |
-| whereNull($colonne, $tableau) / whereNotNull($colonne, $tableau) | La valeur de la colonne doit être null / ne doit pas être null            |
-| whereColunm($colonne1, $colonne2)                                | Les valeurs des deux colonnes doivent être égales                         |
+| Nom| Description|
+|---|---|
+| **where**(&#36;column, &#36;condition) | Applique la condition voulue sur la colonne indiquée |
+| **whereIn**(&#36;column, &#36;array) | La valeur de la colonne doit se trouver dans le tableau |
+| **orWhere**(&#36;column, &#36;condition) | Applique une condition optionnelle sur la colonne indiquée |
+| **whereBetween**(&#36;column, &#36;array) | La valeur de la colonne doit se trouver entre les deux valeurs du tableau |
+| **whereNull**(&#36;column, &#36;array) / Comment(&#36;colonne, &#36;tableau) | La valeur de la colonne doit être null / ne doit pas être null |
+| **whereColunm**(&#36;column1, &#36;column1) | Les valeurs des deux colonnes doivent être égales |
 
 - **Comment ?**
 
 Une fois les conditions indiquées, on peut appliquer plusieurs [filtres](https://laravel.com/docs/9.x/queries#ordering-grouping-limit-and-offset) avant de récupérer le résultat:
 
-| Nom                       | Description                                     |
-|---------------------------|-------------------------------------------------|
-| orderBy($colonne, $order) | Tri selon la colonne indiquée ('ASC' ou 'DESC') |
-| take($nombre)             | Renvoie un certain nombre de résultat           |
-| skip($nombre)             | Ignore un certain nombre de résultat            |
-| limit($nombre)            | Même principe que take()                        |
-| offset($nombre)           | Même principe que skip()                        |
-| latest()                  | Tri par date (plus récent en premier)           |
-| oldest()                  | Tri par date (plus ancien en premier)           |
+| Nom | Description |
+|---|---|
+| **orderBy**(&#36;colonne, &#36;order) | Tri selon la colonne indiquée ('ASC' ou 'DESC') |
+| **take**(&#36;int) | Renvoie `$int` résultat(s) |
+| **skip**(&#36;int) | Ignore `$int` résultat(s) |
+| **limit**(&#36;int) | Même principe que `take()` |
+| **offset**(&#36;int) | Même principe que `skip()` |
+| **latest**() | Tri par date (plus récent en premier) |
+| **oldest**() | Tri par date (plus ancien en premier) |
 
 - **Combien ?**
 
@@ -1136,31 +1346,73 @@ La classe `Collection` de Laravel permet d'améliorer la gestion des **tableaux*
 
 ### [Méthodes](https://laravel.com/docs/9.x/collections#available-methods)
 
-| Nom                                       | Description                                                                                                    |
-|-------------------------------------------|----------------------------------------------------------------------------------------------------------------|
-| **all**()                                 | Retourne le tableau contenu dans la Collection                                                                 |
-| **collect**($tableau)                     | Le helper `collect()` permet de créer une nouvelle Collection à partir d'un tableau                            |
-| **count**()                               | Retourne le nombre d'éléments contenu dans la Collection                                                       |
-| **each**($callback)                       | Fonctionne de la même manière qu'un foreach()                                                                  |
-| **first**()                               | Retourne le premier élément de la Collection                                                                   |
-| **firstWhere**($key, $condition, $valeur) | Retourne le premier élément qui valide la condition ($condition -> "=", ">=", "<=", etc.)                      |
-| **get**($key)                             | Renvoie l'élément à l'index $key                                                                               |
-| **isEmpty**()                             | Retourne true si la Collection est vide, false sinon                                                           |
-| **last**()                                | Retourne le dernier élément de la Collection                                                                   |
-| **map**($callback)                        | Fonctionne de la même manière qu'un array_map()                                                                |
-| **mapWithKeys**($callback)                | Fonctionne de la même manière qu'un map() à l'exception qu'il réduit chaque élément à un tableau clé -> valeur |
-| **random**()                              | Renvoie un élément aléatoire de la Collection                                                                  |
-| **shuffle**()                             | Mélange les éléments de la Collection de façon aléatoire                                                       |
-| **contains**($callback)                   | Renvoie true si la Collection contient un élément valide selon le $callback, false sinon                       |
-| **toArray**()                             | Converti la Collection en array PHP                                                                            |
-| **unique**()                              | Retire les doublons de la Collection                                                                           |
-| **where**($key, $valeur)                  | Fonctionne de la même manière que la méthode where() de Model                                                  |
-| **whereIn**($key, $tableau)               | Fonctionne de la même manière que la méthode whereIn() de Model                                                |
-| **whereBetween**($key, $tableau)          | Fonctionne de la même manière que la méthode whereBetween() de Model                                           |
+| Nom | Description |
+|---|---|
+| **all**() | Retourne le tableau contenu dans la `Collection` |
+| **collect**(&#36;tableau) | Le helper `collect()` permet de créer une nouvelle `Collection` à partir d'un tableau |
+| **count**() | Retourne le nombre d'éléments contenu dans la `Collection` |
+| **each**(&#36;callback) | Fonctionne de la même manière que `foreach()` |
+| **first**() | Retourne le premier élément de la `Collection` |
+| **firstWhere**(&#36;key, &#36;condition, &#36;valeur) | Retourne le premier élément qui valide la condition (`$condition` -> "=", ">=", "<=", etc.) |
+| **get**(&#36;key) | Renvoie l'élément à l'index `$key` |
+| **isEmpty**() | Retourne true si la `Collection` est vide, false sinon |
+| **last**() | Retourne le dernier élément de la Collection |
+| **map**(&#36;callback) | Fonctionne de la même manière que `array_map()` |
+| **mapWithKeys**(&#36;callback) | Fonctionne de la même manière que `map()` à l'exception qu'il réduit chaque élément à un tableau clé -> valeur |
+| **random**() | Renvoie un élément aléatoire de la `Collection` |
+| **shuffle**() | Mélange les éléments de la `Collection` de façon aléatoire |
+| **contains**(&#36;callback) | Renvoie true si la `Collection` contient un élément valide selon le `$callback`, false sinon |
+| **toArray**() | Converti la `Collection` en array PHP |
+| **unique**() | Retire les doublons de la `Collection` |
+| **whereIn**(&#36;key, &#36;tableau) | Fonctionne de la même manière que la méthode `whereIn()` de `Model` |
+| **whereBetween**(&#36;key, &#36;tableau) | Fonctionne de la même manière que la méthode `whereBetween()` de `Model` |
 
 ## [Seeder](https://laravel.com/docs/9.x/seeding)
 
 ## [Validation](https://laravel.com/docs/9.x/validation)
+
+Laravel permet de valider les valeurs d'une requête par rapport à certaines règles avant de les utiliser pour créer ou mettre à jour une entité.
+
+Il est possible de valider la requête directement:
+
+```php=
+<?php
+// app/Http/Controllers/UserController.php
+use Illuminate\Http\Request;
+
+public function store(Request $request)
+{
+    $validated = $request->validate([
+        'email' => ['required', 'string', 'unique:users,email']
+    ]);
+    
+    // Les données sont valides
+}
+```
+
+Ici, on demande à ce que l'index "*email*" existe dans le tableau de données de la requête, que la valeur soit une chaîne de charactère et qu'elle soit unique dans la table users.
+
+Si la requête n'est pas valide, elle renverra un tableau d'erreur et n'exécutera pas la suite du code.
+
+Une meilleurep pratique pour avoir la main sur les errors et les données a valider est de créer un `Validator` manuellement:
+
+```php=
+<?php
+
+<?php
+// app/Http/Controllers/UserController.php
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+
+public function store(Request $request)
+{
+    $validator = $request->validate([
+        'email' => ['required', 'string', 'unique:users,email']
+    ]);
+    
+    // Les données sont valides
+}
+```
 
 ## [Logging](https://laravel.com/docs/9.x/logging)
 
@@ -1173,6 +1425,8 @@ La classe `Collection` de Laravel permet d'améliorer la gestion des **tableaux*
 ## [Form Request](https://laravel.com/docs/9.x/validation#form-request-validation)
 
 ## [Resource](https://laravel.com/docs/9.x/eloquent-resources)
+
+## [Gestion des fichiers](https://laravel.com/docs/9.x/filesystem)
 
 ## Refactoriser
 
